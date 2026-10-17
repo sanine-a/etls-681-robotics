@@ -25,7 +25,8 @@ setup(
     entry_points={
         'console_scripts': [
         	'showimage=imageprocessing.showimage:main',
-        	'object_classifier = vision_tasks.object_classifier:main',
+        	'object_classifier = imageprocessing.object_classifier:main',
+        	'gesture_recognition = imageprocessing.gesture_recognition:main',
         ],
     },
 )

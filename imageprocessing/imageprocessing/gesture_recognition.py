@@ -1,42 +1,24 @@
-#!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
-
 import cv2
 import numpy as np
-
-from sensor_msgs.msg import Image
-from std_msgs.msg import String
-from cv_bridge import CvBridge
-
 import mediapipe as mp
 
-# MediaPipe Tasks setup
+from sensor_msgs.msg import Image, CompressedImage
+from std_msgs.msg import String
+
+# MediaPipe setup
 BaseOptions = mp.tasks.BaseOptions
 HandLandmarker = mp.tasks.vision.HandLandmarker
 HandLandmarkerOptions = mp.tasks.vision.HandLandmarkerOptions
 VisionRunningMode = mp.tasks.vision.RunningMode
 
 
-class GestureRecognitionNode(Node):
+class GestureRecognizer(Node):
     def __init__(self):
-        super().__init__('gesture_recognition')
+        super().__init__('gesture_recognizer')
 
-        self.bridge = CvBridge()
-
-        # Subscribers
-        self.subscription = self.create_subscription(
-            Image,
-            '/camera/image_raw',
-            self.image_callback,
-            10
-        )
-
-        # Publishers
-        self.label_pub = self.create_publisher(String, '/vision/gesture_labels', 10)
-        self.annotated_pub = self.create_publisher(Image, '/vision/gesture_annotated', 10)
-
-        # Load MediaPipe model
+        # Initialize MediaPipe HandLandmarker
         options = HandLandmarkerOptions(
             base_options=BaseOptions(model_asset_path="hand_landmarker.task"),
             running_mode=VisionRunningMode.IMAGE,
@@ -44,74 +26,80 @@ class GestureRecognitionNode(Node):
         )
         self.detector = HandLandmarker.create_from_options(options)
 
-        self.get_logger().info("GestureRecognitionNode initialized.")
+        # Subscribe to TurtleBot3 camera
+        self.image_sub = self.create_subscription(
+            CompressedImage,
+            '/camera/image_raw/compressed',
+            self.image_callback,
+            10
+        )
 
-    # -----------------------------
-    # Gesture Classification Logic
-    # -----------------------------
+        # Publishers
+        self.gesture_pub = self.create_publisher(String, '/vision/gesture_labels', 10)
+        self.annotated_pub = self.create_publisher(Image, '/vision/gesture_annotated', 10)
+
+        self.get_logger().info("GestureRecognizer node initialized.")
+
     def classify_gesture(self, landmarks):
         wrist = landmarks[0]
-
-        # Thumb joints
         thumb_mcp = landmarks[2]
         thumb_tip = landmarks[4]
-
-        # Other finger tips and PIP joints
+        
         fingers = [
-            (8, 6),   # Index
-            (12, 10), # Middle
-            (16, 14), # Ring
-            (20, 18)  # Pinky
+            (8, 6),   # Index: tip, pip
+            (12, 10), # Middle: tip, pip
+            (16, 14), # Ring:   tip, pip
+            (20, 18)  # Pinky: tip, pip
         ]
 
-        # Thumbs up logic
+        # Thumbs up logic:
+        # 1. Thumb is pointing up relative to its knuckle and wrist
+        # 2. Other fingers are curled: tip X is closer to the wrist X than the PIP X
         thumb_is_up = thumb_tip.y < thumb_mcp.y and thumb_tip.y < wrist.y
         others_are_curled = all(
-            abs(landmarks[tip].x - wrist.x) < abs(landmarks[pip].x - wrist.x)
+            abs(landmarks[tip].x - wrist.x) < abs(landmarks[pip].x - wrist.x) 
             for tip, pip in fingers
         )
 
         if thumb_is_up and others_are_curled:
             return "thumbs_up"
 
-        # Open hand logic
-        index_tip = landmarks[8]
-        middle_tip = landmarks[12]
-        ring_tip = landmarks[16]
-        pinky_tip = landmarks[20]
+    # Open hand logic:
+    # All four fingers must have their tips higher than the wrist AND higher than their PIP joint
+        open_hand_valid = all(
+            landmarks[tip].y < wrist.y and landmarks[tip].y < landmarks[pip].y 
+            for tip, pip in fingers
+        )
 
-        if (
-            index_tip.y < wrist.y and
-            middle_tip.y < wrist.y and
-            ring_tip.y < wrist.y and
-            pinky_tip.y < wrist.y
-        ):
+        if open_hand_valid:
             return "open_hand"
 
         return None
 
-    # -----------------------------
-    # Image Callback
-    # -----------------------------
     def image_callback(self, msg):
-        frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+        # Decode compressed image
+        np_arr = np.frombuffer(msg.data, np.uint8)
+        frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
-        # Optional preprocessing
-        frame = cv2.convertScaleAbs(frame, alpha=1.3, beta=20)
-        frame = cv2.GaussianBlur(frame, (3, 3), 0)
+        if frame is None:
+            self.get_logger().warn("Failed to decode compressed image.")
+            return
 
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
-
+        # Convert to MediaPipe Image format
+        rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_image)
+        
         result = self.detector.detect(mp_image)
-
-        gesture_label = None
+        gesture_label = "none"
 
         if result.hand_landmarks:
             landmarks = result.hand_landmarks[0]
-            gesture_label = self.classify_gesture(landmarks)
+            detected_gesture = self.classify_gesture(landmarks)
 
-            # Draw landmarks
+            if detected_gesture:
+                gesture_label = detected_gesture
+
+            # Draw landmarks and label on the frame
             for lm in landmarks:
                 cx = int(lm.x * frame.shape[1])
                 cy = int(lm.y * frame.shape[0])
@@ -123,21 +111,29 @@ class GestureRecognitionNode(Node):
 
         # Publish gesture label
         label_msg = String()
-        label_msg.data = gesture_label if gesture_label else ""
-        self.label_pub.publish(label_msg)
+        label_msg.data = gesture_label
+        self.gesture_pub.publish(label_msg)
 
         # Publish annotated image
-        annotated_msg = self.bridge.cv2_to_imgmsg(frame, encoding='bgr8')
+        annotated_msg = Image()
+        annotated_msg.height = frame.shape[0]
+        annotated_msg.width = frame.shape[1]
+        annotated_msg.encoding = "bgr8"
+        annotated_msg.step = frame.shape[1] * 3
+        annotated_msg.data = frame.flatten().tolist()
         self.annotated_pub.publish(annotated_msg)
 
 
 def main(args=None):
     rclpy.init(args=args)
-    node = GestureRecognitionNode()
-    rclpy.spin(node)
+    node = GestureRecognizer()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
     node.destroy_node()
     rclpy.shutdown()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
