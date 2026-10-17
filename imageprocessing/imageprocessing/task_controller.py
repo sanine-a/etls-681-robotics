@@ -36,7 +36,7 @@ class TaskController(Node):
         self.debounce_threshold = 5  # Must see condition for 5 consecutive loops
         
         self.cellphone_counter = 0
-        self.cup_counter = 0
+        self.bottle_counter = 0
         self.thumbs_up_counter = 0
         self.open_hand_counter = 0
 
@@ -75,17 +75,17 @@ class TaskController(Node):
         # 2. UPDATE NOISE FILTERING COUNTERS
         # ==========================================
         cellphone_present = "cell phone" in self.current_objects
-        cup_present = "cup" in self.current_objects
+        bottle_present = "bottle" in self.current_objects
 
         if cellphone_present:
             self.cellphone_counter += 1
         else:
             self.cellphone_counter = max(0, self.cellphone_counter - 1)
 
-        if cup_present:
-            self.cup_counter += 1
+        if bottle_present:
+            self.bottle_counter += 1
         else:
-            self.cup_counter = max(0, self.cup_counter - 1)
+            self.bottle_counter = max(0, self.bottle_counter - 1)
 
         if self.current_gesture == "thumbs_up":
             self.thumbs_up_counter += 1
@@ -116,7 +116,7 @@ class TaskController(Node):
         # ==========================================
         if self.thumbs_up_counter >= self.debounce_threshold:
             if not self.is_driving_forward:
-                self.get_logger().info("Thumbs Up confirmed: Latching forward drive (Overrides cup retreat).")
+                self.get_logger().info("Thumbs Up confirmed: Latching forward drive (Overrides bottle retreat).")
             self.is_driving_forward = True
             self.is_running_away = False  # Thumbs up cancels running away
 
@@ -126,31 +126,31 @@ class TaskController(Node):
             self.is_driving_forward = False
 
         # ==========================================
-        # 5. CUP RETREAT TRIGGER (Only if NOT driving forward)
+        # 5. bottle RETREAT TRIGGER (Only if NOT driving forward)
         # ==========================================
         if not self.is_driving_forward:
-            if self.cup_counter >= self.debounce_threshold:
+            if self.bottle_counter >= self.debounce_threshold:
                 self.is_running_away = True
 
         # ==========================================
         # 6. EXECUTE BEHAVIORS BASED ON PRIORITY FLAGS
         # ==========================================
         if self.is_driving_forward:
-            # Thumbs up has higher priority than cup view
+            # Thumbs up has higher priority than bottle view
             twist.linear.x = 0.15
             twist.angular.z = 0.0
             self.get_logger().info("Driving forward via Thumbs Up...", throttle_duration_sec=2.0)
 
         elif self.is_running_away:
-            # Robot is stopped/idle and sees a cup -> run away until it disappears
-            if cup_present:
+            # Robot is stopped/idle and sees a bottle -> run away until it disappears
+            if bottle_present:
                 twist.linear.x = -0.35  # Reverse fast
                 twist.angular.z = 0.0
-                self.get_logger().info("Cup visible while stopped: Running away fast!", throttle_duration_sec=1.0)
+                self.get_logger().info("bottle visible: Running away fast!", throttle_duration_sec=1.0)
             else:
-                self.get_logger().info("Cup lost from view. Ending run-away state.")
+                self.get_logger().info("bottle lost from view. Ending run-away state.")
                 self.is_running_away = False
-                self.cup_counter = 0
+                self.bottle_counter = 0
                 twist.linear.x = 0.0
                 twist.angular.z = 0.0
 
