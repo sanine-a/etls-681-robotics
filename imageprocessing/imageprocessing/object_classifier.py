@@ -1,13 +1,10 @@
-#!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
-
 import cv2
 import numpy as np
 from ultralytics import YOLO
 
-from sensor_msgs.msg import CompressedImage
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image, CompressedImage
 from std_msgs.msg import String
 
 TARGET_OBJECTS = ["bottle", "cup", "cell phone", "backpack"]
