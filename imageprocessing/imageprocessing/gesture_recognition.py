@@ -90,7 +90,7 @@ class GestureRecognizer(Node):
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_image)
         
         result = self.detector.detect(mp_image)
-        gesture_label = "none"
+        gesture_label = "None"
 
         if result.hand_landmarks:
             landmarks = result.hand_landmarks[0]
@@ -105,7 +105,7 @@ class GestureRecognizer(Node):
                 cy = int(lm.y * frame.shape[0])
                 cv2.circle(frame, (cx, cy), 3, (0, 255, 0), -1)
 
-            if gesture_label:
+            if gesture_label != "None":
                 cv2.putText(frame, gesture_label, (10, 40),
                             cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2)
 
