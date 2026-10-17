@@ -6,6 +6,7 @@ from ultralytics import YOLO
 
 from sensor_msgs.msg import Image, CompressedImage
 from std_msgs.msg import String
+import math
 
 TARGET_OBJECTS = ["bottle", "cup", "cell phone", "backpack"]
 MIN_CONFIDENCE = 0.2
@@ -18,10 +19,12 @@ class ObjectClassifier(Node):
         # YOLO model
         self.model = YOLO("yolov8n.pt")
 
-        # Subscribe to compressed camera feed
+        # Subscribe to camera feed
         self.image_sub = self.create_subscription(
-            CompressedImage,
-            '/camera/image_raw/compressed',
+            # CompressedImage,
+            Image,
+            # '/camera/image_raw/compressed',
+            '/camera/image_raw',
             self.image_callback,
             10
         )
@@ -33,15 +36,16 @@ class ObjectClassifier(Node):
         self.get_logger().info("ObjectClassifier node initialized.")
 
     # ---------------------------------------------------------
-    # Decode compressed image → run YOLO → publish results
+    # Decode image → run YOLO → publish results
     # ---------------------------------------------------------
     def image_callback(self, msg):
-        # Decode compressed image
-        np_arr = np.frombuffer(msg.data, np.uint8)
-        frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+        # Decode image
+        frame = np.array(msg.data, dtype=np.uint8).reshape(
+			msg.height, math.floor(msg.step/3), 3
+		)
 
         if frame is None:
-            self.get_logger().warn("Failed to decode compressed image.")
+            self.get_logger().warn("Failed to decode image.")
             return
 
         # Run YOLO inference
