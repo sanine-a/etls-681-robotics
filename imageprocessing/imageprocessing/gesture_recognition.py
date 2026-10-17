@@ -6,6 +6,7 @@ import mediapipe as mp
 
 from sensor_msgs.msg import Image, CompressedImage
 from std_msgs.msg import String
+import math
 
 # MediaPipe setup
 BaseOptions = mp.tasks.BaseOptions
@@ -28,8 +29,10 @@ class GestureRecognizer(Node):
 
         # Subscribe to TurtleBot3 camera
         self.image_sub = self.create_subscription(
-            CompressedImage,
-            '/camera/image_raw/compressed',
+            # CompressedImage,
+            Image,
+            # '/camera/image_raw/compressed',
+            '/camera/image_raw',
             self.image_callback,
             10
         )
@@ -77,12 +80,13 @@ class GestureRecognizer(Node):
         return None
 
     def image_callback(self, msg):
-        # Decode compressed image
-        np_arr = np.frombuffer(msg.data, np.uint8)
-        frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+        # Decode image
+        frame = np.array(msg.data, dtype=np.uint8).reshape(
+			msg.height, math.floor(msg.step/3), 3
+		)
 
         if frame is None:
-            self.get_logger().warn("Failed to decode compressed image.")
+            self.get_logger().warn("Failed to decode image.")
             return
 
         # Convert to MediaPipe Image format
