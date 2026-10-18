@@ -33,8 +33,10 @@ class TaskController(Node):
         self.spin_duration = 6.3 
 
         # --- Noise Filtering (Debouncing) Counters ---
-        self.debounce_threshold = 5  # Must see condition for 5 consecutive loops
-        
+        self.debounce_threshold = 5
+        self.counter_limit = 10
+        self.counter_limit_bottle = 15
+
         self.cellphone_counter = 0
         self.bottle_counter = 0
         self.thumbs_up_counter = 0
@@ -78,29 +80,37 @@ class TaskController(Node):
         bottle_present = "bottle" in self.current_objects
 
         if cellphone_present:
-            self.cellphone_counter += 1
+            self.cellphone_counter = min(
+                self.counter_limit, self.cellphone_counter + 1
+            )
         else:
             self.cellphone_counter = max(0, self.cellphone_counter - 1)
 
         if bottle_present:
-            self.bottle_counter += 1
+            self.bottle_counter = min(
+                self.counter_limit_bottle, self.bottle_counter + 1
+            )
         else:
             self.bottle_counter = max(0, self.bottle_counter - 1)
 
         if self.current_gesture == "thumbs_up":
-            self.thumbs_up_counter += 1
+            self.thumbs_up_counter = min(
+                self.counter_limit, self.thumbs_up_counter + 1
+            )
         else:
             self.thumbs_up_counter = max(0, self.thumbs_up_counter - 1)
 
         if self.current_gesture == "open_hand":
-            self.open_hand_counter += 1
+            self.open_hand_counter = min(
+                self.counter_limit, self.open_hand_counter + 1
+            )
         else:
             self.open_hand_counter = max(0, self.open_hand_counter - 1)
 
         # ==========================================
         # 3. CHECK CELLPHONE INTERRUPT TRIGGER
         # ==========================================
-        if self.cellphone_counter >= self.debounce_threshold and not self.is_spinning_360:
+        if self.cellphone_counter >= self.debounce_threshold:
             self.get_logger().info("Cell phone detected consistently! Initiating 360 spin.")
             self.is_spinning_360 = True
             self.spin_start_time = current_time
@@ -117,19 +127,23 @@ class TaskController(Node):
         if self.thumbs_up_counter >= self.debounce_threshold:
             if not self.is_driving_forward:
                 self.get_logger().info("Thumbs Up confirmed: Latching forward drive (Overrides bottle retreat).")
-            self.is_driving_forward = True
-            self.is_running_away = False  # Thumbs up cancels running away
+                self.is_driving_forward = True
+                self.is_running_away = False  # Thumbs up cancels running away
+                self.thumbs_up_counter = 0  # Reset counter after action
+                self.open_hand_counter = 0  # Reset open hand counter to avoid immediate stop
 
         if self.open_hand_counter >= self.debounce_threshold:
             if self.is_driving_forward:
                 self.get_logger().info("Open Hand confirmed: Stopping robot.")
-            self.is_driving_forward = False
+                self.is_driving_forward = False
+                self.open_hand_counter = 0  # Reset open hand counter after action
+                self.thumbs_up_counter = 0  # Reset thumbs up counter to avoid immediate restart
 
         # ==========================================
         # 5. bottle RETREAT TRIGGER (Only if NOT driving forward)
         # ==========================================
         if not self.is_driving_forward:
-            if self.bottle_counter >= self.debounce_threshold:
+            if self.bottle_counter >= self.debounce_threshold + 3:
                 self.is_running_away = True
 
         # ==========================================
@@ -142,8 +156,8 @@ class TaskController(Node):
             self.get_logger().info("Driving forward via Thumbs Up...", throttle_duration_sec=2.0)
 
         elif self.is_running_away:
-            # Robot is stopped/idle and sees a bottle -> run away until it disappears
-            if bottle_present:
+            # Keep running away unless the counter drops below the exit threshold
+            if self.bottle_counter >= self.debounce_threshold - 2:
                 twist.linear.x = -0.35  # Reverse fast
                 twist.angular.z = 0.0
                 self.get_logger().info("bottle visible: Running away fast!", throttle_duration_sec=1.0)
