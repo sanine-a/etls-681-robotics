@@ -158,7 +158,7 @@ class TaskController(Node):
         elif self.is_running_away:
             # Keep running away unless the counter drops below the exit threshold
             if self.bottle_counter >= self.debounce_threshold - 2:
-                twist.linear.x = -0.35  # Reverse fast
+                twist.linear.x = -0.25  # Reverse fast
                 twist.angular.z = 0.0
                 self.get_logger().info("bottle visible: Running away fast!", throttle_duration_sec=1.0)
             else:
