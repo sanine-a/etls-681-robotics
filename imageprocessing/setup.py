@@ -31,6 +31,7 @@ setup(
         	'object_classifier = imageprocessing.object_classifier:main',
         	'gesture_recognition = imageprocessing.gesture_recognition:main',
             'task_controller = imageprocessing.task_controller:main',
+            'relay = imageprocessing.relay:main',
         ],
     },
 )

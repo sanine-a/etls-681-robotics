@@ -2,7 +2,9 @@ import rclpy
 from rclpy.node import Node
 import cv2
 import numpy as np
+print("importing yolo...")
 from ultralytics import YOLO
+print("yolo imported")
 
 from sensor_msgs.msg import Image, CompressedImage
 from std_msgs.msg import String
@@ -17,14 +19,18 @@ class ObjectClassifier(Node):
         super().__init__('object_classifier')
 
         # YOLO model
+        self.get_logger().info("loading yolov8n model...")
+        print("loading yolov8n model")
         self.model = YOLO("yolov8n.pt")
+        self.get_logger().info("yolov8n model loaded.")
+        print("yolov8n model loaded")
 
         # Subscribe to camera feed
         self.image_sub = self.create_subscription(
             # CompressedImage,
             Image,
             # '/camera/image_raw/compressed',
-            '/camera/image_raw',
+            '/camera_relay/image_raw',
             self.image_callback,
             10
         )

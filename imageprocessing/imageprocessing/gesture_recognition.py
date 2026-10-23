@@ -32,7 +32,7 @@ class GestureRecognizer(Node):
             # CompressedImage,
             Image,
             # '/camera/image_raw/compressed',
-            '/camera/image_raw',
+            '/camera_relay/image_raw',
             self.image_callback,
             10
         )

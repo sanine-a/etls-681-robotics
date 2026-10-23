@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
+    <node pkg="imageprocessing" exec="relay"/>
     <node pkg="imageprocessing" exec="object_classifier"/>
     <node pkg="imageprocessing" exec="gesture_recognition"/>
     <node pkg="imageprocessing" exec="task_controller"/>
