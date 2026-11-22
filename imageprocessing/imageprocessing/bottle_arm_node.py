@@ -16,9 +16,9 @@ class BottleArmNode(Node):
 
         # --- Tunable Joint Postures [joint1, joint2, joint3, joint4] (radians) ---
         # Tune these gently while watching the robot on your first test!
-        self.home_positions = [0.0, -1.0, 0.8, 0.2]
-        self.reach_forward_positions = [0.0, 0.2, 0.1, -0.3]
-        self.lift_positions = [0.0, -0.1, 0.3, -0.2]
+        self.home_positions = [-0.0031, -1.0523, 1.0769, 0.0061]
+        self.reach_forward_positions = [-0.0077, 1.129, -0.7363, -0.1718]
+        self.lift_positions = [0.0031, 0.8173, -0.7424, 0.0046]
 
         # --- Tunable Gripper Positions (meters) ---
         self.gripper_open_pos = 0.019

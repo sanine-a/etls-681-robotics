@@ -32,7 +32,7 @@ setup(
         	'gesture_recognition = imageprocessing.gesture_recognition:main',
             'task_controller = imageprocessing.task_controller:main',
             'relay = imageprocessing.relay:main',
-            'arm_controller = imageprocessing.arm_controller:main',
+            'bottle_arm_node = imageprocessing.bottle_arm_node:main',
             'line_follower = imageprocessing.line_follower:main',
             'mission_controller = imageprocessing.mission_controller:main',
         ],
