@@ -134,7 +134,6 @@ class BottleArmNode(Node):
                 self.active_sequence = "IDLE"
                 self.publish_status("GRAB_COMPLETE")
                 self.get_logger().info("GRAB sequence complete.")
-                self.publish_status("IDLE")
 
         elif self.active_sequence == "RELEASE":
             if self.step == 0:
@@ -156,7 +155,6 @@ class BottleArmNode(Node):
                 self.active_sequence = "IDLE"
                 self.publish_status("RELEASE_COMPLETE")
                 self.get_logger().info("RELEASE sequence complete.")
-                self.publish_status("IDLE")
 
 
 def main(args=None):
