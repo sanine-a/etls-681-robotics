@@ -18,7 +18,7 @@ class BottleArmNode(Node):
         # Tune these gently while watching the robot
         self.home_positions = [-0.0031, -1.0523, 1.0769, 0.0061]
         self.reach_forward_positions = [-0.0077, 1.129, -0.7363, -0.1718]
-        self.lift_positions = [0.0031, 0.8173, -0.7424, 0.0046]
+        self.lift_positions = [0.0031, 0.8173, -0.7424, 0.0046] # Not used since joint2 gets mad when holding heavy objects
 
         # --- Tunable Gripper Positions (meters) ---
         self.gripper_open_pos = 0.019
@@ -127,7 +127,7 @@ class BottleArmNode(Node):
                 self.step_start_time = self.now_sec()
             elif self.step == 2 and elapsed >= 1.0:
                 # 3. Lift up slightly
-                self.send_arm_goal(self.lift_positions, self.move_time_sec)
+                self.send_arm_goal(self.home_positions, self.move_time_sec)
                 self.step = 3
                 self.step_start_time = self.now_sec()
             elif self.step == 3 and elapsed >= self.move_time_sec + 0.3:
