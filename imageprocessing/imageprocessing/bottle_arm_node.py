@@ -15,7 +15,7 @@ class BottleArmNode(Node):
         self.arm_joints = ['joint1', 'joint2', 'joint3', 'joint4']
 
         # --- Tunable Joint Postures [joint1, joint2, joint3, joint4] (radians) ---
-        # Tune these gently while watching the robot on your first test!
+        # Tune these gently while watching the robot
         self.home_positions = [-0.0031, -1.0523, 1.0769, 0.0061]
         self.reach_forward_positions = [-0.0077, 1.129, -0.7363, -0.1718]
         self.lift_positions = [0.0031, 0.8173, -0.7424, 0.0046]
@@ -39,7 +39,7 @@ class BottleArmNode(Node):
         self.create_subscription(String, '/arm/command', self.command_callback, 10)
         self.status_pub = self.create_publisher(String, '/arm/status', 10)
 
-        self.active_sequence = None
+        self.active_sequence = "IDLE"
         self.step = 0
         self.step_start_time = None
 
@@ -57,6 +57,16 @@ class BottleArmNode(Node):
 
     def command_callback(self, msg):
         cmd = msg.data.strip().lower()
+        if cmd not in ("grab", "release"):
+            self.get_logger().warn(f"Unknown /arm/command: '{msg.data}'")
+            return
+
+        if self.active_sequence != "IDLE":
+            self.get_logger().warn(
+                f"Ignoring '{cmd}' command while {self.active_sequence} sequence is active."
+            )
+            return
+
         if cmd == "grab":
             self.active_sequence = "GRAB"
             self.step = 0
@@ -69,8 +79,6 @@ class BottleArmNode(Node):
             self.step_start_time = self.now_sec()
             self.publish_status("RELEASING")
             self.get_logger().info("Starting RELEASE sequence.")
-        else:
-            self.get_logger().warn(f"Unknown /arm/command: '{msg.data}'")
 
     def send_arm_goal(self, positions, duration_sec=1.5):
         if not self.arm_client.wait_for_server(timeout_sec=1.0):
@@ -100,7 +108,7 @@ class BottleArmNode(Node):
         self.gripper_client.send_goal_async(goal)
 
     def control_loop(self):
-        if self.active_sequence is None:
+        if self.active_sequence == "IDLE":
             return
 
         elapsed = self.now_sec() - self.step_start_time
@@ -123,9 +131,10 @@ class BottleArmNode(Node):
                 self.step = 3
                 self.step_start_time = self.now_sec()
             elif self.step == 3 and elapsed >= self.move_time_sec + 0.3:
-                self.active_sequence = None
+                self.active_sequence = "IDLE"
                 self.publish_status("GRAB_COMPLETE")
                 self.get_logger().info("GRAB sequence complete.")
+                self.publish_status("IDLE")
 
         elif self.active_sequence == "RELEASE":
             if self.step == 0:
@@ -144,9 +153,10 @@ class BottleArmNode(Node):
                 self.step = 3
                 self.step_start_time = self.now_sec()
             elif self.step == 3 and elapsed >= self.move_time_sec + 0.3:
-                self.active_sequence = None
+                self.active_sequence = "IDLE"
                 self.publish_status("RELEASE_COMPLETE")
                 self.get_logger().info("RELEASE sequence complete.")
+                self.publish_status("IDLE")
 
 
 def main(args=None):
