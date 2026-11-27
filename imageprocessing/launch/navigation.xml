@@ -4,4 +4,5 @@
     <node pkg="imageprocessing" exec="object_classifier"/>
     <node pkg="imageprocessing" exec="gesture_recognition"/>
     <node pkg="imageprocessing" exec="line_follower"/>
+    <node pkg="imageprocessing" exec="bottle_arm_node"/>
 </launch>
