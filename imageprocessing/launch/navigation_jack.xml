@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <node pkg="imageprocessing" exec="relay"/>
+    <node pkg="imageprocessing" exec="object_classifier_jack"/>
+    <node pkg="imageprocessing" exec="gesture_recognition"/>
+
+    <!-- Start MoveIt Servo for the manipulator arm -->
+    <include file="$(find-pkg-share turtlebot3_manipulation_moveit_config)/launch/servo.launch.py"/>
+
+    <node pkg="imageprocessing" exec="bottle_arm_node"/>
+</launch>

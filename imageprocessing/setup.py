@@ -35,6 +35,7 @@ setup(
             'bottle_arm_node = imageprocessing.bottle_arm_node:main',
             'line_follower = imageprocessing.line_follower:main',
             'mission_controller = imageprocessing.mission_controller:main',
+            'object_classifier_jack = imageprocessing.object_classifier_jack:main',
         ],
     },
 )
