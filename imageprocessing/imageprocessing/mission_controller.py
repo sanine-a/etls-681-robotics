@@ -14,13 +14,15 @@ class MissionController(Node):
         self.line_drive_speed = 0.12
         self.camera_offset_setpoint = -0.4
         self.line_align_kp = 0.45
+        self.line_lost_trigger_count = 3
 
         # --- Backup & Creep Parameters ---
         self.backup_speed = -0.08
         self.backup_duration_sec = 0.6
+        self.post_drop_retreat_duration_sec = 1.0
 
         self.creep_speed = 0.08
-        self.creep_duration_sec = 0.5
+        self.creep_duration_sec = 2.0
 
         # --- Object Inspection Window (after backing up) ---
         self.inspect_duration_sec = 1.0
@@ -50,6 +52,7 @@ class MissionController(Node):
         self.current_objects = []
         self.line_error = 0.0
         self.line_detected = False
+        self.line_lost_count = 0
         self.arm_status = "IDLE"
 
         self.navigation_paused = False
@@ -60,7 +63,7 @@ class MissionController(Node):
         # --- State Machine ---
         # FOLLOW_LINE -> BACKING_UP -> INSPECT_OBJECT ->
         #   (no bottle) STOPPED_FOR_OBJECT
-        #   (bottle)    CREEP_FORWARD -> GRABBING -> TURNING_TO_PLACE -> RELEASING -> TURNING_BACK -> FOLLOW_LINE
+        #   (bottle)    CREEP_FORWARD -> GRABBING -> TURNING_TO_PLACE -> RELEASING -> POST_DROP_RETREAT -> TURNING_BACK -> FOLLOW_LINE
         self.state = "FOLLOW_LINE"
         self.state_start_time = self.now_sec()
         self.arm_command_sent = False
@@ -108,6 +111,8 @@ class MissionController(Node):
         self.state = new_state
         self.state_start_time = self.now_sec()
         self.arm_command_sent = False
+        if new_state == "FOLLOW_LINE":
+            self.line_lost_count = 0
         if new_state == "INSPECT_OBJECT":
             self.bottle_inspect_votes = 0
         self.get_logger().info(f"State -> {new_state}")
@@ -150,8 +155,11 @@ class MissionController(Node):
         if self.state == "FOLLOW_LINE":
             if not self.line_detected:
                 self.publish_stop()
-                self.transition_to("BACKING_UP")
+                self.line_lost_count += 1
+                if self.line_lost_count >= self.line_lost_trigger_count:
+                    self.transition_to("BACKING_UP")
                 return
+            self.line_lost_count = 0
             self.follow_line_step()
 
         elif self.state == "BACKING_UP":
@@ -195,6 +203,17 @@ class MissionController(Node):
                 self.transition_to("TURNING_TO_PLACE")
 
         elif self.state == "TURNING_TO_PLACE":
+            # Use the visible line to finish aligning after most of the turn.
+            if elapsed >= self.min_turn_before_line_align_sec and self.line_detected:
+                error = self.line_error - self.camera_offset_setpoint
+                if abs(error) < 0.08:
+                    self.publish_stop()
+                    self.transition_to("RELEASING")
+                    return
+                align_angular_z = max(-0.45, min(0.45, -self.line_align_kp * error))
+                self.publish_twist(0.0, align_angular_z)
+                return
+
             if elapsed < self.turn_180_duration_sec:
                 self.publish_twist(0.0, self.turn_speed)
             else:
@@ -207,6 +226,13 @@ class MissionController(Node):
                 self.send_arm_command("release")
                 self.arm_command_sent = True
             elif self.arm_status == "RELEASE_COMPLETE":
+                self.transition_to("POST_DROP_RETREAT")
+
+        elif self.state == "POST_DROP_RETREAT":
+            if elapsed < self.post_drop_retreat_duration_sec:
+                self.publish_twist(self.backup_speed, 0.0)
+            else:
+                self.publish_stop()
                 self.transition_to("TURNING_BACK")
 
         elif self.state == "TURNING_BACK":
