@@ -62,7 +62,7 @@ class LineFollower(Node):
             largest_contour = max(contours, key=cv2.contourArea)
             area = cv2.contourArea(largest_contour)
 
-            if ((area > 200) and (area < 1000)): # Minimum area threshold to ignore small noise and then make sure we are not just seeing a large dark area
+            if ((area > 150) and (area < 1000)): # Minimum area threshold to ignore small noise and then make sure we are not just seeing a large dark area
                 M = cv2.moments(largest_contour)
                 if M["m00"] > 0: # Avoid division by zero by checking if the area is greater than zero
                     cx = int(M["m10"] / M["m00"]) # x-centroid calculated by taking first-order horizontal moment and dividing it by the total area
